@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Balon Patlatma Oyunu</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa;
+        }
+
+        #gameArea {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            margin: 20px auto;
+            border: 2px solid #00796b;
+            overflow: hidden;
+            background-image: url('images/arkaplan.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .balon {
+            position: absolute;
+            width: 50px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        #scoreBoard {
+            margin-top: 20px;
+        }
+
+        input, button, select {
+            padding: 5px 10px;
+            font-size: 16px;
+            margin: 5px;
+        }
+
+        #leaderBoard {
+            margin-top: 20px;
+            text-align: left;
+            display: inline-block;
+        }
+
+        #gameOverPanel {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255,255,255,0.95);
+            padding: 30px;
+            border: 2px solid #00796b;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+
+        #gameOverPanel h2, #gameOverPanel ol {
+            margin: 10px 0;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Balon Patlatma Oyunu</h1>
+    
+    <div>
+        <label for="playerName">İsminizi Girin: </label>
+        <input type="text" id="playerName" placeholder="İsminiz">
+        <label for="levelSelect">Seviye: </label>
+        <select id="levelSelect">
+            <option value="easy">Kolay</option>
+            <option value="medium">Orta</option>
+            <option value="hard">Zor</option>
+        </select>
+        <button id="startBtn">Oyuna Başla</button>
+    </div>
+
+    <div id="gameArea"></div>
+
+    <div id="scoreBoard">
+        <h2>Skor: <span id="score">0</span></h2>
+        <h3>En Yüksek Skor: <span id="highScore">0</span></h3>
+        <h3>Kalan Süre: <span id="timeLeft">30</span> saniye</h3>
+    </div>
+
+    <div id="leaderBoard">
+        <h2>Lider Tablosu (En İyi 10)</h2>
+        <ol id="leadersList"></ol>
+    </div>
+
+    <!-- Oyun bitti paneli -->
+    <div id="gameOverPanel">
+        <h2 id="finalScore"></h2>
+        <h3>Lider Tablosu</h3>
+        <ol id="finalLeaders"></ol>
+        <button id="restartBtn">Tekrar Oyna</button>
+    </div>
+
+    <audio id="popSound" src="sounds/pop.mp3"></audio>
+
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const startBtn = document.getElementById('startBtn');
+        const playerNameInput = document.getElementById('playerName');
+        const timeLeftElement = document.getElementById('timeLeft');
+        const levelSelect = document.getElementById('levelSelect');
+        const leadersList = document.getElementById('leadersList');
+        const gameOverPanel = document.getElementById('gameOverPanel');
+        const finalScore = document.getElementById('finalScore');
+        const finalLeaders = document.getElementById('finalLeaders');
+        const restartBtn = document.getElementById('restartBtn');
+        const popSound = document.getElementById('popSound');
+
+        let score = 0;
+        let highScore = localStorage.getItem('highScore') || 0;
+        highScoreElement.textContent = highScore;
+
+        let gameInterval, highScoreInterval, countdownInterval;
+
+        const levels = {
+            easy: { spawnRate: 1200, speedMin: 1, speedMax: 2 },
+            medium: { spawnRate: 800, speedMin: 2, speedMax: 4 },
+            hard: { spawnRate: 500, speedMin: 3, speedMax: 5 }
+        };
+
+        function createBalloon(level) {
+            const balloon = document.createElement('img');
+            balloon.src = 'images/balon.png';
+            balloon.classList.add('balon');
+            balloon.style.left = Math.random() * (gameArea.clientWidth - 50) + 'px';
+            balloon.style.bottom = '0px';
+            gameArea.appendChild(balloon);
+
+            let balloonSpeed = levels[level].speedMin + Math.random() * (levels[level].speedMax - levels[level].speedMin);
+
+            const moveInterval = setInterval(() => {
+                let currentBottom = parseFloat(balloon.style.bottom);
+                if (currentBottom > gameArea.clientHeight) {
+                    balloon.remove();
+                    clearInterval(moveInterval);
+                } else {
+                    balloon.style.bottom = currentBottom + balloonSpeed + 'px';
+                }
+            }, 20);
+
+            balloon.addEventListener('click', () => {
+                balloon.src = 'images/patlama.png';
+                popSound.currentTime = 0;
+                popSound.play();
+                score += 1;
+                scoreElement.textContent = score;
+                setTimeout(() => {
+                    balloon.remove();
+                    clearInterval(moveInterval);
+                }, 200);
+            });
+        }
+
+        function updateLeaders(playerName, score) {
+            let leaders = JSON.parse(localStorage.getItem('leaders')) || [];
+            leaders.push({ name: playerName, score: score });
+            leaders.sort((a, b) => b.score - a.score);
+            if (leaders.length > 10) leaders = leaders.slice(0, 10);
+            localStorage.setItem('leaders', JSON.stringify(leaders));
+            renderLeaders();
+        }
+
+        function renderLeaders() {
+            let leaders = JSON.parse(localStorage.getItem('leaders')) || [];
+            leadersList.innerHTML = '';
+            leaders.forEach(l => {
+                const li = document.createElement('li');
+                li.textContent = `${l.name}: ${l.score}`;
+                leadersList.appendChild(li);
+            });
+        }
+
+        function showGameOver(playerName, score) {
+            finalScore.textContent = `${playerName}, toplam ${score} balon patlattın!`;
+
+            let leaders = JSON.parse(localStorage.getItem('leaders')) || [];
+            finalLeaders.innerHTML = '';
+            leaders.forEach(l => {
+                const li = document.createElement('li');
+                li.textContent = `${l.name}: ${l.score}`;
+                finalLeaders.appendChild(li);
+            });
+
+            gameOverPanel.style.display = 'block';
+        }
+
+        function startGame() {
+            const playerName = playerNameInput.value.trim() || 'Oyuncu';
+            const level = levelSelect.value;
+            score = 0;
+            scoreElement.textContent = score;
+            let timeLeft = 30;
+            timeLeftElement.textContent = timeLeft;
+
+            gameOverPanel.style.display = 'none';
+            document.querySelectorAll('.balon').forEach(b => b.remove());
+
+            if (gameInterval) clearInterval(gameInterval);
+            if (highScoreInterval) clearInterval(highScoreInterval);
+            if (countdownInterval) clearInterval(countdownInterval);
+
+            gameInterval = setInterval(() => createBalloon(level), levels[level].spawnRate);
+
+            highScoreInterval = setInterval(() => {
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('highScore', highScore);
+                    highScoreElement.textContent = highScore;
+                }
+            }, 100);
+
+            countdownInterval = setInterval(() => {
+                timeLeft -= 1;
+                timeLeftElement.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(gameInterval);
+                    clearInterval(highScoreInterval);
+                    clearInterval(countdownInterval);
+                    document.querySelectorAll('.balon').forEach(b => b.remove());
+                    updateLeaders(playerName, score);
+                    showGameOver(playerName, score);
+                }
+            }, 1000);
+        }
+
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        renderLeaders();
+    </script>
+</body>
+</html>
