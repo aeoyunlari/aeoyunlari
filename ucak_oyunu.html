@@ -13,67 +13,61 @@ body {
     height: 100vh;
     background-color: #111; 
     font-family: Arial, sans-serif;
+    touch-action: none;
 }
 
 #gameContainer {
     position: relative;
-    width: 800px;
-    height: 600px;
+    width: 90vw;  /* ekran genişliğinin %90'ı */
+    height: 70vh; /* ekran yüksekliğinin %70'i */
+    max-width: 800px;
+    max-height: 600px;
     overflow: hidden;
     border: 3px solid #fff;
     border-radius: 10px;
-    background: linear-gradient(to top, #87CEFA 0%, #B0E0E6 100%); /* Gökyüzü mavisi gradient */
+    background: linear-gradient(to top, #87CEFA 0%, #B0E0E6 100%);
+    touch-action: none;
 }
 
 #player {
     position: absolute;
-    bottom: 20px;
+    bottom: 3%;
     left: 50%;
     transform: translateX(-50%);
-    width: 50px;
-    height: 50px;
+    width: 6%;  /* konteynerin genişliğine göre */
+    height: auto;
+    max-width: 50px;
     background-image: url('player.png');
-    background-size: cover;
+    background-size: contain;
+    background-repeat: no-repeat;
 }
 
 .enemy {
     position: absolute;
-    width: 50px;
-    height: 50px;
+    width: 6%;
+    height: auto;
+    max-width: 50px;
     background-image: url('enemy.png');
-    background-size: cover;
+    background-size: contain;
+    background-repeat: no-repeat;
 }
 
 .bullet {
     position: absolute;
-    width: 5px;
-    height: 15px;
+    width: 0.6%;
+    height: 2.5%;
     background-color: red;
 }
 
-#scoreBoard {
-    position: absolute;
-    top: 10px;
-    left: 10px;
+#scoreBoard, #levelBoard, #livesBoard {
     color: white;
-    font-size: 20px;
+    font-size: 4vw;
+    position: absolute;
 }
 
-#levelBoard {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    color: white;
-    font-size: 20px;
-}
-
-#livesBoard {
-    position: absolute;
-    top: 40px;
-    left: 10px;
-    color: white;
-    font-size: 20px;
-}
+#scoreBoard { top: 2%; left: 2%; }
+#levelBoard { top: 2%; right: 2%; }
+#livesBoard { top: 8%; left: 2%; }
 
 #gameOverMessage {
     position: absolute;
@@ -81,34 +75,32 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     color: red;
-    font-size: 36px;
+    font-size: 8vw;
     font-weight: bold;
     display: none;
+    text-align: center;
 }
 
-#startButton, #restartButton {
+#startButton, #restartButton, #shootButton {
     position: absolute;
-    top: 60%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    padding: 12px 25px;
-    font-size: 18px;
+    padding: 1% 2%;
+    font-size: 4vw;
     cursor: pointer;
     border: none;
     border-radius: 8px;
-    background-color: #28a745;
     color: white;
 }
 
-#restartButton {
-    background-color: #007bff;
-}
+#startButton { top: 60%; left: 50%; transform: translate(-50%, -50%); background-color: #28a745; }
+#restartButton { top: 60%; left: 50%; transform: translate(-50%, -50%); background-color: #007bff; display: none; }
+#shootButton { bottom: 5%; right: 5%; width: 20%; height: 8%; font-size: 4vw; background-color: #dc3545; }
 
-/* Bulutlar */
 .cloud {
     position: absolute;
-    width: 100px;
-    height: 60px;
+    width: 10%;
+    height: 10%;
+    max-width: 100px;
+    max-height: 60px;
     background: white;
     border-radius: 50%;
     opacity: 0.8;
@@ -116,8 +108,8 @@ body {
 }
 
 @keyframes moveClouds {
-    from { transform: translateX(-150px); }
-    to { transform: translateX(850px); }
+    from { transform: translateX(-15%); }
+    to { transform: translateX(115%); }
 }
 </style>
 </head>
@@ -129,7 +121,8 @@ body {
     <div id="livesBoard">Can: <span id="lives">5</span></div>
     <div id="gameOverMessage">OYUN BİTTİ</div>
     <button id="startButton">Başlat</button>
-    <button id="restartButton" style="display:none;">Yeniden Oyna</button>
+    <button id="restartButton">Yeniden Oyna</button>
+    <button id="shootButton">Ateş Et</button>
 </div>
 
 <script>
@@ -146,37 +139,60 @@ let level = 1;
 let lives = 5;
 const gameArea = document.getElementById('gameContainer');
 
-const keys = {};
 let lastShotTime = 0;
-
 const gameOverMessage = document.getElementById('gameOverMessage');
 const startButton = document.getElementById('startButton');
+const restartButton = document.getElementById('restartButton');
+const shootButton = document.getElementById('shootButton');
 
-document.getElementById('startButton').addEventListener('click', () => {
-    addClouds();
-    startGame();
+startButton.addEventListener('click', () => { addClouds(); startGame(); });
+restartButton.addEventListener('click', restartGame);
+shootButton.addEventListener('click', shoot);
+
+// --- Mobil dokunmatik kontroller ---
+let touchStartX = null;
+let touchMoveX = null;
+
+gameArea.addEventListener('touchstart', function(e) {
+    if (!gameStarted) return;
+    touchStartX = e.touches[0].clientX;
 });
-document.getElementById('restartButton').addEventListener('click', restartGame);
 
-document.addEventListener('keydown', function(event) {
-    if (['ArrowLeft','ArrowRight',' '].includes(event.key)) {
-        event.preventDefault();
-        keys[event.key] = true;
+gameArea.addEventListener('touchmove', function(e) {
+    if (!gameStarted) return;
+    touchMoveX = e.touches[0].clientX;
+    const diff = (touchMoveX - touchStartX) * (gameArea.offsetWidth / window.innerWidth); // ölçekli hareket
+    movePlayer(diff);
+    touchStartX = touchMoveX;
+});
+
+function movePlayer(direction) {
+    let currentLeft = parseFloat(player.style.left) || player.offsetLeft;
+    let newLeft = currentLeft + direction;
+    if (newLeft < 0) newLeft = 0;
+    if (newLeft > gameArea.offsetWidth - player.offsetWidth) newLeft = gameArea.offsetWidth - player.offsetWidth;
+    player.style.left = newLeft + 'px';
+}
+
+function shoot() {
+    const now = Date.now();
+    if (now - lastShotTime > 250) {
+        const bullet = document.createElement('div');
+        bullet.classList.add('bullet');
+        bullet.style.left = player.offsetLeft + player.offsetWidth/2 - gameArea.offsetWidth*0.006/2 + 'px';
+        bullet.style.bottom = player.offsetHeight + 5 + 'px';
+        gameArea.appendChild(bullet);
+        bullets.push(bullet);
+        lastShotTime = now;
     }
-});
-
-document.addEventListener('keyup', function(event) {
-    if (['ArrowLeft','ArrowRight',' '].includes(event.key)) {
-        keys[event.key] = false;
-    }
-});
+}
 
 function addClouds() {
     for(let i=0; i<5; i++) {
         const cloud = document.createElement('div');
         cloud.classList.add('cloud');
-        cloud.style.top = Math.random() * 200 + 'px';
-        cloud.style.left = Math.random() * 800 + 'px';
+        cloud.style.top = Math.random() * 30 + '%';
+        cloud.style.left = Math.random() * 100 + '%';
         cloud.style.animationDuration = (30 + Math.random() * 20) + 's';
         gameArea.appendChild(cloud);
     }
@@ -191,8 +207,8 @@ function startGame() {
     document.getElementById('score').innerText = score;
     document.getElementById('level').innerText = level;
     document.getElementById('lives').innerText = lives;
-    document.getElementById('startButton').style.display = 'none';
-    document.getElementById('restartButton').style.display = 'none';
+    startButton.style.display = 'none';
+    restartButton.style.display = 'none';
     gameOverMessage.style.display = 'none';
     player = document.getElementById('player');
     player.style.left = '50%';
@@ -210,36 +226,43 @@ function restartGame() {
     enemies.forEach(e => e.remove());
     bullets = [];
     enemies = [];
-    addClouds(); // bulutları tekrar ekle
+    addClouds();
     startGame();
 }
 
-function movePlayer(direction) {
-    let currentLeft = parseInt(player.style.left) || player.offsetLeft;
-    let newLeft = currentLeft + direction;
-    if (newLeft < 0) newLeft = 0;
-    if (newLeft > gameArea.offsetWidth - player.offsetWidth)
-        newLeft = gameArea.offsetWidth - player.offsetWidth;
-    player.style.left = newLeft + 'px';
+function gameLoop() {
+    moveBullets();
+    moveEnemies();
+    checkCollisions();
 }
 
-function shoot() {
-    const now = Date.now();
-    if (now - lastShotTime > 250) {
-        const bullet = document.createElement('div');
-        bullet.classList.add('bullet');
-        bullet.style.left = player.offsetLeft + player.offsetWidth/2 - 2.5 + 'px';
-        bullet.style.bottom = '70px';
-        gameArea.appendChild(bullet);
-        bullets.push(bullet);
-        lastShotTime = now;
-    }
+function moveBullets() {
+    bullets.forEach((bullet, index) => {
+        bullet.style.bottom = (parseFloat(bullet.style.bottom) + 5) + 'px';
+        if (parseFloat(bullet.style.bottom) > gameArea.offsetHeight) {
+            bullet.remove();
+            bullets.splice(index, 1);
+        }
+    });
+}
+
+function moveEnemies() {
+    enemies.forEach((enemy, index) => {
+        enemy.style.top = (parseFloat(enemy.style.top) || 0) + enemySpeed + 'px';
+        if (parseFloat(enemy.style.top) > gameArea.offsetHeight) {
+            enemy.remove();
+            enemies.splice(index, 1);
+            lives--;
+            document.getElementById('lives').innerText = lives;
+            if (lives <= 0) endGame();
+        }
+    });
 }
 
 function spawnEnemy() {
     const enemy = document.createElement('div');
     enemy.classList.add('enemy');
-    enemy.style.left = Math.random() * (gameArea.offsetWidth - 50) + 'px';
+    enemy.style.left = Math.random() * (gameArea.offsetWidth - enemy.offsetWidth) + 'px';
     enemy.style.top = '0px';
     gameArea.appendChild(enemy);
     enemies.push(enemy);
@@ -249,35 +272,6 @@ function increaseDifficulty() {
     enemySpeed += 1;
     level += 1;
     document.getElementById('level').innerText = level;
-}
-
-function gameLoop() {
-    if (keys['ArrowLeft']) movePlayer(-10);
-    if (keys['ArrowRight']) movePlayer(10);
-    if (keys[' ']) shoot();
-    moveBullets();
-    moveEnemies();
-    checkCollisions();
-}
-
-function moveBullets() {
-    bullets.forEach((bullet, index) => {
-        bullet.style.bottom = (parseInt(bullet.style.bottom) + 5) + 'px';
-        if (parseInt(bullet.style.bottom) > gameArea.offsetHeight) {
-            bullet.remove();
-            bullets.splice(index, 1);
-        }
-    });
-}
-
-function moveEnemies() {
-    enemies.forEach((enemy, index) => {
-        enemy.style.top = (parseInt(enemy.style.top) || 0) + enemySpeed + 'px';
-        if (parseInt(enemy.style.top) > gameArea.offsetHeight) {
-            enemy.remove();
-            enemies.splice(index, 1);
-        }
-    });
 }
 
 function checkCollisions() {
@@ -300,9 +294,7 @@ function checkCollisions() {
             enemies.splice(enemyIndex, 1);
             lives--;
             document.getElementById('lives').innerText = lives;
-            if (lives <= 0) {
-                endGame();
-            }
+            if (lives <= 0) endGame();
         }
     });
 }
@@ -315,18 +307,18 @@ function endGame() {
     enemies.forEach(e => e.remove());
     bullets = [];
     enemies = [];
-    gameOverMessage.style.display = 'block'; // Oyun Bitti mesajını göster
-    document.getElementById('restartButton').style.display = 'block';
+    gameOverMessage.style.display = 'block';
+    restartButton.style.display = 'block';
 }
 
-function isColliding(bullet, enemy) {
-    const bulletRect = bullet.getBoundingClientRect();
-    const enemyRect = enemy.getBoundingClientRect();
+function isColliding(a, b) {
+    const rectA = a.getBoundingClientRect();
+    const rectB = b.getBoundingClientRect();
     return !(
-        bulletRect.top > enemyRect.bottom ||
-        bulletRect.bottom < enemyRect.top ||
-        bulletRect.right < enemyRect.left ||
-        bulletRect.left > enemyRect.right
+        rectA.top > rectB.bottom ||
+        rectA.bottom < rectB.top ||
+        rectA.right < rectB.left ||
+        rectA.left > rectB.right
     );
 }
 </script>
