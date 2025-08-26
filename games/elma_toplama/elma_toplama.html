@@ -19,7 +19,8 @@
 
         #game-container {
             text-align: center;
-            max-width: 90%;
+            width: 100%;
+            max-width: 800px;
             margin: 0 auto;
             position: relative;
         }
@@ -28,7 +29,9 @@
             border: 2px solid #2edd17;
             display: block;
             margin-bottom: 20px;
-            background-size: cover;  /* arka plan resmi için */
+            background-size: cover;
+            width: 100%;  /* responsive genişlik */
+            height: auto; /* responsive yükseklik */
         }
 
         #start-screen, #game-over-screen {
@@ -117,19 +120,19 @@
 
         // Görseller
         const appleImg = new Image();
-        appleImg.src = "images/apple.png";  // 🍎 buraya elma resmini koy
+        appleImg.src = "images/apple.png";
 
         const basketImg = new Image();
-        basketImg.src = "images/basket.png"; // 🧺 buraya sandık resmini koy
+        basketImg.src = "images/basket.png";
 
         const bgImg = new Image();
-        bgImg.src = "images/background.jpg"; // 🌄 buraya arka plan resmini koy
+        bgImg.src = "images/background.jpg";
 
         const basket = {
             x: 0,
             y: 0,
             width: 100,
-            height: 60,  // resme göre ayarladım
+            height: 60,
             speed: 10
         };
 
@@ -229,8 +232,15 @@
         }
 
         function init() {
-            canvas.width = window.innerWidth * 0.5;  // ekranın %50’si
-            canvas.height = window.innerHeight * 0.4; // ekranın %40’ı
+            // Mobil cihazlar için tam ekran, masaüstü için sınırlı
+            if (window.innerWidth < 768) { 
+                canvas.width = window.innerWidth * 0.95;
+                canvas.height = window.innerHeight * 0.5;
+            } else { 
+                canvas.width = Math.min(window.innerWidth * 0.6, 600);
+                canvas.height = Math.min(window.innerHeight * 0.6, 400);
+            }
+
             basket.x = (canvas.width / 2) - (basket.width / 2);
             basket.y = canvas.height - basket.height - 10;
         }
@@ -246,19 +256,21 @@
             if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
         }
 
-        // Dokunmatik kontrol
+        // Dokunmatik kontrol (daha yumuşak ve hızlı)
         let lastTouchX = 0;
         canvas.addEventListener('touchstart', (e) => {
             lastTouchX = e.touches[0].clientX;
         });
+
         canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // sayfa kaydırmayı engelle
             const currentTouchX = e.touches[0].clientX;
             const diff = currentTouchX - lastTouchX;
-            basket.x += diff * 0.5;
+            basket.x += diff * 0.8; // hız artırıldı
             if (basket.x < 0) basket.x = 0;
             if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
             lastTouchX = currentTouchX;
-        });
+        }, { passive: false });
 
         startButton.addEventListener('click', () => {
             playerName = playerNameInput.value.trim() || "Oyuncu";
