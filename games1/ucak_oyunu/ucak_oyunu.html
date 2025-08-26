@@ -7,22 +7,26 @@
 <style>
 body {
     margin: 0;
+    overflow: hidden; /* Mobil kaydırmayı kapat */
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     background-color: #111; 
     font-family: Arial, sans-serif;
+    touch-action: none; /* Mobilde kaydırma engelleme */
 }
 
 #gameContainer {
     position: relative;
     width: 800px;
+    max-width: 100%;
     height: 600px;
+    max-height: 100%;
     overflow: hidden;
     border: 3px solid #fff;
     border-radius: 10px;
-    background: linear-gradient(to top, #87CEFA 0%, #B0E0E6 100%); /* Gökyüzü mavisi gradient */
+    background: linear-gradient(to top, #87CEFA 0%, #B0E0E6 100%);
 }
 
 #player {
@@ -51,29 +55,15 @@ body {
     background-color: red;
 }
 
-#scoreBoard {
-    position: absolute;
-    top: 10px;
-    left: 10px;
+#scoreBoard, #levelBoard, #livesBoard {
     color: white;
     font-size: 20px;
+    position: absolute;
 }
 
-#levelBoard {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    color: white;
-    font-size: 20px;
-}
-
-#livesBoard {
-    position: absolute;
-    top: 40px;
-    left: 10px;
-    color: white;
-    font-size: 20px;
-}
+#scoreBoard { top: 10px; left: 10px; }
+#levelBoard { top: 10px; right: 10px; }
+#livesBoard { top: 40px; left: 10px; }
 
 #gameOverMessage {
     position: absolute;
@@ -96,13 +86,11 @@ body {
     cursor: pointer;
     border: none;
     border-radius: 8px;
-    background-color: #28a745;
     color: white;
 }
 
-#restartButton {
-    background-color: #007bff;
-}
+#startButton { background-color: #28a745; }
+#restartButton { background-color: #007bff; display:none; }
 
 /* Bulutlar */
 .cloud {
@@ -114,10 +102,31 @@ body {
     opacity: 0.8;
     animation: moveClouds linear infinite;
 }
-
 @keyframes moveClouds {
     from { transform: translateX(-150px); }
     to { transform: translateX(850px); }
+}
+
+/* Mobil kontroller */
+#controls {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+}
+
+.control-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    background-color: rgba(0,0,0,0.5);
+    color: white;
+    font-size: 24px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 </style>
 </head>
@@ -129,7 +138,14 @@ body {
     <div id="livesBoard">Can: <span id="lives">5</span></div>
     <div id="gameOverMessage">OYUN BİTTİ</div>
     <button id="startButton">Başlat</button>
-    <button id="restartButton" style="display:none;">Yeniden Oyna</button>
+    <button id="restartButton">Yeniden Oyna</button>
+
+    <!-- Mobil Kontroller -->
+    <div id="controls">
+        <button id="leftBtn" class="control-button">◀</button>
+        <button id="fireBtn" class="control-button">🔥</button>
+        <button id="rightBtn" class="control-button">▶</button>
+    </div>
 </div>
 
 <script>
@@ -148,6 +164,7 @@ const gameArea = document.getElementById('gameContainer');
 
 const keys = {};
 let lastShotTime = 0;
+let fireInterval;
 
 const gameOverMessage = document.getElementById('gameOverMessage');
 const startButton = document.getElementById('startButton');
@@ -164,11 +181,28 @@ document.addEventListener('keydown', function(event) {
         keys[event.key] = true;
     }
 });
-
 document.addEventListener('keyup', function(event) {
     if (['ArrowLeft','ArrowRight',' '].includes(event.key)) {
         keys[event.key] = false;
     }
+});
+
+// Mobil tuşlar
+document.getElementById('leftBtn').addEventListener('touchstart', ()=> keys['ArrowLeft']=true);
+document.getElementById('leftBtn').addEventListener('touchend', ()=> keys['ArrowLeft']=false);
+
+document.getElementById('rightBtn').addEventListener('touchstart', ()=> keys['ArrowRight']=true);
+document.getElementById('rightBtn').addEventListener('touchend', ()=> keys['ArrowRight']=false);
+
+document.getElementById('fireBtn').addEventListener('touchstart', ()=>{
+    if(!fireInterval){
+        shoot();
+        fireInterval = setInterval(shoot, 200);
+    }
+});
+document.getElementById('fireBtn').addEventListener('touchend', ()=>{
+    clearInterval(fireInterval);
+    fireInterval = null;
 });
 
 function addClouds() {
@@ -210,7 +244,7 @@ function restartGame() {
     enemies.forEach(e => e.remove());
     bullets = [];
     enemies = [];
-    addClouds(); // bulutları tekrar ekle
+    addClouds();
     startGame();
 }
 
@@ -225,7 +259,7 @@ function movePlayer(direction) {
 
 function shoot() {
     const now = Date.now();
-    if (now - lastShotTime > 250) {
+    if (now - lastShotTime > 150) {
         const bullet = document.createElement('div');
         bullet.classList.add('bullet');
         bullet.style.left = player.offsetLeft + player.offsetWidth/2 - 2.5 + 'px';
@@ -315,7 +349,7 @@ function endGame() {
     enemies.forEach(e => e.remove());
     bullets = [];
     enemies = [];
-    gameOverMessage.style.display = 'block'; // Oyun Bitti mesajını göster
+    gameOverMessage.style.display = 'block';
     document.getElementById('restartButton').style.display = 'block';
 }
 
