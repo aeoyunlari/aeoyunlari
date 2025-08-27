@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>• Şekil Eşleştirme •</title>
+  <style>
+    :root{--bg1:#e6f7ff;--panel:#ffffff;--accent:#ffd166;--muted:#6b6b6b}
+    *{box-sizing:border-box}
+    body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--bg1),#f7fbff);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .frame{width:400px;height:600px;border-radius:18px;background:var(--panel);box-shadow:0 12px 30px rgba(12,35,64,.12);overflow:hidden;position:relative}
+    header{padding:18px;text-align:center;border-bottom:1px solid #f0f4f8}
+    h1{margin:0;font-size:20px}
+    p.sub{margin:6px 0 0;color:var(--muted);font-size:13px}
+
+    .board{padding:18px;display:flex;flex-direction:column;gap:12px;height:calc(100% - 140px);align-items:center;justify-content:flex-start}
+    .targetBox{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .targetLabel{font-size:16px;color:#2b3a4a}
+    .targetShape{width:140px;height:140px;border-radius:16px;background:linear-gradient(180deg,#ffffff,#f6f9ff);display:grid;place-items:center;box-shadow:0 6px 18px rgba(15,36,66,.06)}
+
+    .choices{width:100%;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .choice{height:120px;border-radius:14px;background:linear-gradient(180deg,#fff,#fbfeff);display:grid;place-items:center;box-shadow:0 6px 18px rgba(12,35,64,.05);touch-action:manipulation}
+    .choice:active{transform:scale(.98)}
+
+    .controls{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:center}
+    .btn{background:var(--accent);border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
+    .small{background:#eef6ff;color:#124; padding:8px 10px;border-radius:10px}
+    .score{font-weight:700;color:#124}
+
+    /* large touch targets for toddlers */
+    svg{width:64px;height:64px}
+    @media (max-width:420px){.frame{width:360px;height:640px}}
+  </style>
+</head>
+<body>
+  <div class="frame" role="application" aria-label="Aslan şekil eşleştirme oyunu">
+    <header>
+      <h1>• Şekil Eşleştir • </h1>
+      <p class="sub">Görüntüdeki şekli bul ve dokun </p>
+    </header>
+
+    <main class="board">
+      <div class="targetBox" aria-live="polite">
+        <div class="targetLabel">Hedef: <span id="targetName">—</span></div>
+        <div class="targetShape" id="targetShape" aria-hidden="true"></div>
+      </div>
+
+      <div class="choices" id="choices" role="navigation" aria-label="Seçenekler">
+        <!-- choices generated here -->
+      </div>
+    </main>
+
+    <div class="controls">
+      <button class="small" id="restartBtn">Yeniden</button>
+      <div class="score">Doğru: <span id="score">0</span></div>
+      <button class="btn" id="nextBtn">Başla</button>
+    </div>
+  </div>
+
+  <script>
+    // şekiller: id, display name, SVG generator
+    const SHAPES = [
+      {id:'circle', name:'Daire', svg:()=>`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="30" fill="#ffd166" stroke="#f0a500" stroke-width="4"/></svg>`},
+      {id:'square', name:'Kare', svg:()=>`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="22" width="56" height="56" rx="8" fill="#cce8ff" stroke="#77b6ff" stroke-width="4"/></svg>`},
+      {id:'triangle', name:'Üçgen', svg:()=>`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,18 82,78 18,78" fill="#c9f4d6" stroke="#66c28a" stroke-width="4"/></svg>`},
+      {id:'star', name:'Yıldız', svg:()=>`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50 16 L61 40 L86 40 L66 56 L74 80 L50 64 L26 80 L34 56 L14 40 L39 40 Z" fill="#f7d6ff" stroke="#e49cf8" stroke-width="3"/></svg>`},
+      {id:'heart', name:'Kalp', svg:()=>`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50 72 L22 46 C12 36 12 22 26 18 C36 14 46 22 50 30 C54 22 64 14 74 18 C88 22 88 36 78 46 L50 72 Z" fill="#ffcfe1" stroke="#ff88b2" stroke-width="3"/></svg>`}
+    ];
+
+    const targetNameEl = document.getElementById('targetName');
+    const targetShapeEl = document.getElementById('targetShape');
+    const choicesEl = document.getElementById('choices');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const scoreEl = document.getElementById('score');
+
+    let currentTarget = null;
+    let score = 0;
+
+    // Simple gentle sounds using WebAudio
+    let audioCtx;
+    function initAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+    function playCorrect(){ try{ initAudio(); const t=audioCtx.currentTime; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(600,t); o.frequency.exponentialRampToValueAtTime(900,t+0.1); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.2,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.4); o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t+0.45);}catch(e){} }
+    function playWrong(){ try{ initAudio(); const t=audioCtx.currentTime; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(120,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.18,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t+0.28);}catch(e){} }
+
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a }
+
+    function pickTarget(){ return pick(SHAPES); }
+    function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+    function renderTarget(shape){ currentTarget = shape; targetNameEl.textContent = shape.name; targetShapeEl.innerHTML = shape.svg(); }
+
+    function renderChoices(){ choicesEl.innerHTML='';
+      // choose 4 options, include target
+      const opts = shuffle([currentTarget, ...shuffle(SHAPES).filter(s=>s.id!==currentTarget.id).slice(0,3)]);
+      opts.forEach(opt=>{
+        const btn = document.createElement('button');
+        btn.className='choice';
+        btn.type='button';
+        btn.setAttribute('aria-label', opt.name);
+        btn.innerHTML = opt.svg();
+        btn.addEventListener('click', ()=> onChoice(opt, btn));
+        choicesEl.appendChild(btn);
+      });
+    }
+
+    function onChoice(opt, btn){
+      // disable all choices briefly
+      Array.from(choicesEl.children).forEach(c=>c.disabled=true);
+      if(opt.id===currentTarget.id){
+        btn.animate([{transform:'scale(1)'},{transform:'scale(1.06)'}],{duration:160,fill:'forwards'});
+        playCorrect(); score++; scoreEl.textContent=score; setTimeout(nextRound,500);
+      } else {
+        btn.animate([{transform:'scale(1)'},{transform:'scale(.92)'}],{duration:140,fill:'forwards'});
+        playWrong(); setTimeout(()=>{Array.from(choicesEl.children).forEach(c=>c.disabled=false);},400);
+      }
+    }
+
+    function nextRound(){ const t = pick(SHAPES); renderTarget(t); renderChoices(); }
+
+    // start / restart
+    nextBtn.addEventListener('click', ()=>{ score=0; scoreEl.textContent=score; nextRound(); nextBtn.textContent='İleri'; });
+    restartBtn.addEventListener('click', ()=>{ score=0; scoreEl.textContent=score; renderTarget({id:'-',name:'—',svg:()=>''}); choicesEl.innerHTML=''; nextBtn.textContent='Başla'; });
+
+    // init
+    renderTarget({id:'-',name:'Başlamak için Başla butonuna bas','svg':()=>''});
+  </script>
+</body>
+</html>

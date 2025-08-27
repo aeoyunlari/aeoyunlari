@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elma Toplama Oyunu</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #4c92ad;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        #gameCanvas {
+            border: 2px solid #2edd17;
+            display: block;
+            margin-bottom: 20px;
+            background-size: cover;
+            width: 100%;  /* responsive genişlik */
+            height: auto; /* responsive yükseklik */
+        }
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(12, 15, 213, 0.85);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 10;
+            text-align: center;
+        }
+
+        #player-name {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            width: 200px;
+        }
+
+        button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        #game-info {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Başlangıç ekranı -->
+        <div id="start-screen">
+            <h1>Elma Toplama Oyunu</h1>
+            <input type="text" id="player-name" placeholder="Adını Gir">
+            <button id="start-button">Oyuna Başla</button>
+        </div>
+
+        <!-- Oyun bitti ekranı -->
+        <div id="game-over-screen" style="display:none;">
+            <h2>Oyun Bitti!</h2>
+            <p id="final-score"></p>
+            <button id="restart-button">Tekrar Oyna</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="game-info">
+            <p>Oyuncu: <span id="player-name-display"></span></p>
+            <p>Skor: <span id="score">0</span></p>
+            <p>Seviye: <span id="level">1</span></p>
+            <p>Kalan Hak: <span id="lives">10</span></p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.getElementById('start-button');
+        const playerNameInput = document.getElementById('player-name');
+        const playerNameDisplay = document.getElementById('player-name-display');
+        const scoreDisplay = document.getElementById('score');
+        const levelDisplay = document.getElementById('level');
+        const livesDisplay = document.getElementById('lives');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScore = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button');
+
+        let score = 0;
+        let level = 1;
+        let lives = 10;
+        let playerName = "";
+        let isPlaying = false;
+
+        // Görseller
+        const appleImg = new Image();
+        appleImg.src = "images/apple.png";
+
+        const basketImg = new Image();
+        basketImg.src = "images/basket.png";
+
+        const bgImg = new Image();
+        bgImg.src = "images/background.jpg";
+
+        const basket = {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 60,
+            speed: 10
+        };
+
+        let apples = [];
+
+        const levelSpeeds = {
+            1: [0.5, 1],
+            2: [1, 2],
+            3: [2, 3],
+            4: [1, 2]
+        };
+
+        function drawBasket() {
+            ctx.drawImage(basketImg, basket.x, basket.y, basket.width, basket.height);
+        }
+
+        function drawApples() {
+            apples.forEach(apple => {
+                ctx.drawImage(appleImg, apple.x - apple.radius, apple.y - apple.radius, apple.radius * 2, apple.radius * 2);
+            });
+        }
+
+        function createApple() {
+            const x = Math.random() * (canvas.width - 30) + 15;
+            const y = -20;
+            const radius = 20;
+            const [minSpeed, maxSpeed] = levelSpeeds[level] || [1, 2];
+            const speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
+            apples.push({ x, y, radius, speed });
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // arka plan
+            ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+            moveBasket();
+            update();
+            drawBasket();
+            drawApples();
+            checkCollisions();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            apples.forEach(apple => {
+                apple.y += apple.speed;
+            });
+
+            if (apples.length < 5) {
+                createApple();
+            }
+        }
+
+        function checkCollisions() {
+            for (let i = apples.length - 1; i >= 0; i--) {
+                const apple = apples[i];
+                
+                if (apple.y + apple.radius >= basket.y && 
+                    apple.x > basket.x && 
+                    apple.x < basket.x + basket.width) {
+                    
+                    score += 1;
+                    scoreDisplay.textContent = score;
+                    apples.splice(i, 1);
+
+                    if (score % 10 === 0) {
+                        levelUp();
+                    }
+
+                } else if (apple.y > canvas.height) { 
+                    apples.splice(i, 1);
+                    lives--;
+                    livesDisplay.textContent = lives;
+
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                }
+            }
+        }
+
+        function levelUp() {
+            level++;
+            if (level > 4) level = 1;
+            levelDisplay.textContent = level;
+        }
+
+        function endGame() {
+            isPlaying = false;
+            gameOverScreen.style.display = 'block';
+            finalScore.textContent = `${playerName} - Skorunuz: ${score}`;
+        }
+
+        function init() {
+            // Mobil cihazlar için tam ekran, masaüstü için sınırlı
+            if (window.innerWidth < 768) { 
+                canvas.width = window.innerWidth * 0.95;
+                canvas.height = window.innerHeight * 0.5;
+            } else { 
+                canvas.width = Math.min(window.innerWidth * 0.6, 600);
+                canvas.height = Math.min(window.innerHeight * 0.6, 400);
+            }
+
+            basket.x = (canvas.width / 2) - (basket.width / 2);
+            basket.y = canvas.height - basket.height - 10;
+        }
+
+        let keys = {};
+        document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+        function moveBasket() {
+            if (keys['ArrowLeft'] || keys['a']) basket.x -= basket.speed;
+            if (keys['ArrowRight'] || keys['d']) basket.x += basket.speed;
+            if (basket.x < 0) basket.x = 0;
+            if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
+        }
+
+        // Dokunmatik kontrol (daha yumuşak ve hızlı)
+        let lastTouchX = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            lastTouchX = e.touches[0].clientX;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // sayfa kaydırmayı engelle
+            const currentTouchX = e.touches[0].clientX;
+            const diff = currentTouchX - lastTouchX;
+            basket.x += diff * 0.8; // hız artırıldı
+            if (basket.x < 0) basket.x = 0;
+            if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
+            lastTouchX = currentTouchX;
+        }, { passive: false });
+
+        startButton.addEventListener('click', () => {
+            playerName = playerNameInput.value.trim() || "Oyuncu";
+            startScreen.style.display = 'none';
+            isPlaying = true;
+            score = 0;
+            lives = 10;
+            level = 1;
+            apples = [];
+            scoreDisplay.textContent = score;
+            livesDisplay.textContent = lives;
+            levelDisplay.textContent = level;
+            playerNameDisplay.textContent = playerName;
+            init();
+            gameLoop();
+        });
+
+        restartButton.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            isPlaying = true;
+            score = 0;
+            lives = 10;
+            level = 1;
+            apples = [];
+            scoreDisplay.textContent = score;
+            livesDisplay.textContent = lives;
+            levelDisplay.textContent = level;
+            init();
+            gameLoop();
+        });
+
+        window.addEventListener('resize', init);
+        init();
+    </script>
+</body>
+</html>
