@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hayvan Eşleştirme Oyunu</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(to bottom, #e0f7fa, #fff);
+  }
+
+  #game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    max-width: 600px;
+    width: 95%;
+    border: 3px solid #3399ff;
+    border-radius: 15px;
+    background: #ffffffcc;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
+
+  #game-header {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+    text-align: center;
+  }
+
+  #level-display {
+    font-size: 1rem;
+    color: #3399ff;
+    margin-bottom: 10px;
+  }
+
+  #target {
+    width: 220px;
+    height: 250px;
+    border: 2px solid #333;
+    border-radius: 12px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+  }
+
+  #target img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+
+  #options {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    justify-items: center;
+  }
+
+  .option {
+    width: 170px;
+    height: 200px;
+    border: 2px solid #333;
+    border-radius: 12px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+  }
+
+  .option img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .option:hover {
+    transform: scale(1.05);
+    cursor: pointer;
+  }
+
+  #scoreboard {
+    margin-top: 15px;
+    font-size: 16px;
+  }
+
+  #message {
+    margin-top: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    color: green;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  @media (max-width: 600px) {
+    #target {
+      width: 120px;
+      height: 120px;
+    }
+    .option {
+      width: 80px;
+      height: 80px;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <div id="game-header">Hayvanı Eşleştir! 🐾</div>
+  <div id="level-display">Seviye: 1</div>
+  <div id="target"><img id="target-image" src="" alt="Hedef Hayvan"></div>
+  <div id="options"></div>
+  <div id="scoreboard">Doğru: 0 | Yanlış: 0</div>
+  <div id="message"></div>
+</div>
+
+<script>
+const images = [
+  "images/cat.png","images/dog.png","images/lion.jpg","images/elephant.png",
+  "images/bird.png","images/fox.png","images/cow.png","images/giraffe.jpg",
+  "images/chicken.png","images/tiger.png","images/rooster.png","images/turtle.png","images/monkey.png"
+];
+
+const optionsContainer = document.getElementById("options");
+const targetImage = document.getElementById("target-image");
+const scoreboard = document.getElementById("scoreboard");
+const message = document.getElementById("message");
+const levelDisplay = document.getElementById("level-display");
+
+let correct = 0;
+let wrong = 0;
+let level = 1;
+let currentTarget = "";
+
+function updateScoreboard() {
+  scoreboard.textContent = `Doğru: ${correct} | Yanlış: ${wrong}`;
+  levelDisplay.textContent = `Seviye: ${level}`;
+}
+
+function showMessage(text, color="green") {
+  message.textContent = text;
+  message.style.color = color;
+  message.style.opacity = 1;
+  setTimeout(() => { message.style.opacity = 0; }, 1500);
+}
+
+function nextRound() {
+  let totalOptions = level === 1 ? 4 : level === 2 ? 6 : 9;
+  optionsContainer.style.gridTemplateColumns = `repeat(${Math.ceil(Math.sqrt(totalOptions))}, 1fr)`;
+
+  currentTarget = images[Math.floor(Math.random() * images.length)];
+  targetImage.src = currentTarget;
+
+  let options = [currentTarget];
+  while (options.length < totalOptions) {
+    let candidate = images[Math.floor(Math.random() * images.length)];
+    if (!options.includes(candidate)) options.push(candidate);
+  }
+  options.sort(() => Math.random() - 0.5);
+
+  optionsContainer.innerHTML = "";
+  options.forEach(imgSrc => {
+    const option = document.createElement("div");
+    option.classList.add("option");
+    const img = document.createElement("img");
+    img.src = imgSrc;
+    option.appendChild(img);
+    option.addEventListener("click", () => checkAnswer(imgSrc));
+    optionsContainer.appendChild(option);
+  });
+}
+
+function checkAnswer(choice) {
+  if (choice === currentTarget) {
+    correct++;
+    showMessage("Doğru!", "green");
+    if ((level===1 && correct>=10) || (level===2 && correct>=10)) {
+      level++;
+      correct=0; wrong=0;
+      showMessage(`Seviye ${level}'ye Geçtin!`, "blue");
+    }
+  } else {
+    wrong++;
+    showMessage("Yanlış!", "red");
+  }
+  updateScoreboard();
+  setTimeout(nextRound, 800);
+}
+
+updateScoreboard();
+nextRound();
+</script>
+</body>
+</html>
